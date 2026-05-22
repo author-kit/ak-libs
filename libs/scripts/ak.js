@@ -10,6 +10,11 @@
  * governing permissions and limitations under the License.
  */
 
+const PROVIDERS = [
+  { prefix: 'lib', pathPrefix: '/libs', local: 6456 },
+  { prefix: 'blog', pathPrefix: '/blog', local: 2564, origin: 'https://main--ak-media--author-kit.aem.live' },
+];
+
 const LOG = async (ex, el) => (await import('./utils/error.js')).default(ex, el);
 
 export function getMetadata(name) {
@@ -26,15 +31,27 @@ export function getLocale(locales = { '': {} }) {
   return { prefix, ...locales[prefix] };
 }
 
+function getEnv() {
+  const { host } = window.location;
+  if (!['--', 'local'].some((check) => host.includes(check))) return 'prod';
+  if (['--'].some((check) => host.includes(check))) return 'stage';
+  return 'dev';
+}
+
 export const [setConfig, getConfig] = (() => {
   let config;
+
+  const libCodeBase = `${import.meta.url.replace('/scripts/ak.js', '')}`;
+
   return [
     (conf = {}) => {
       config = {
         ...conf,
         log: conf.log || LOG,
+        env: getEnv(),
         locale: getLocale(conf.locales),
-        codeBase: `${import.meta.url.replace('/scripts/ak.js', '')}`,
+        codeBase: conf.codeBase ?? libCodeBase,
+        libCodeBase,
       };
       return config;
     },
@@ -57,11 +74,43 @@ export async function loadStyle(href) {
   });
 }
 
+function getCodeBase(env, libCodeBase, codeBase, provider) {
+  // If no one to provide the experience, return the consuming codeBase.
+  if (!provider) return codeBase;
+
+  // Determine if testing against a branch
+  const branch = new URLSearchParams(window.location.search).get(provider.prefix) || 'main';
+
+  // If provider has no origin, it's libs
+  if (!provider.origin) {
+    return branch === 'local'
+      ? `http://localhost:${provider.local}${provider.pathPrefix}`
+      : libCodeBase;
+  }
+
+  // Always return the CDN mapped path if on a prod environment
+  if (env === 'prod') return `${window.location.origin}${provider.pathPrefix}`;
+
+  return branch === 'local'
+    ? `http://localhost:${provider.local}${provider.pathPrefix}`
+    : `${provider.origin.replace('main', branch)}${provider.pathPrefix}`;
+}
+
 export async function loadBlock(block) {
-  const { codeBase, log, components } = getConfig();
+  const { log, env, components, codeBase: consumerCodeBase, libCodeBase } = getConfig();
   const { classList } = block;
-  const name = classList[0];
+  let name = classList[0];
+
+  // See if a block provider owns the block
+  const provider = PROVIDERS.find((pr) => name.startsWith(`${pr.prefix}-`));
+
+  // Remove prefix if found in providers list
+  name = provider ? name.replace(`${provider.prefix}-`, '') : name;
   block.dataset.blockName = name;
+
+  // Determine origin and branch
+  const codeBase = getCodeBase(env, libCodeBase, consumerCodeBase, provider);
+
   const blockPath = `${codeBase}/blocks/${name}/${name}`;
   const loading = [new Promise((resolve) => {
     (async () => {
