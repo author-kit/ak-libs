@@ -1,8 +1,9 @@
-import { getConfig, getMetadata } from '../../scripts/ak.js';
+import { getConfig, getMetadata, localizeUrl } from '../../scripts/ak.js';
 import { loadFragment } from '../fragment/fragment.js';
 import { setColorScheme } from '../section-metadata/section-metadata.js';
 
-const { locale, libsBase } = getConfig();
+const config = getConfig();
+const { libsBase } = config;
 
 const HEADER_PATH = `${libsBase}/fragments/nav/header`;
 const HEADER_ACTIONS = [
@@ -43,7 +44,9 @@ function decorateLanguage(btn) {
     if (!menu) {
       const content = document.createElement('div');
       content.classList.add('block-content');
-      const fragment = await loadFragment(`${locale.prefix}${HEADER_PATH}/languages`);
+      const url = new URL(HEADER_PATH);
+      const localizedPath = localizeUrl({ config, url });
+      const fragment = await loadFragment(localizedPath);
       menu = document.createElement('div');
       menu.className = 'language menu';
       menu.append(fragment);
@@ -186,8 +189,10 @@ async function decorateHeader(fragment) {
 export default async function init(el) {
   const headerMeta = getMetadata('header');
   const path = headerMeta || HEADER_PATH;
-  const localizedPath = `${locale.prefix}${path}`;
-  const fragment = await loadFragment(localizedPath);
+  const url = new URL(path);
+  const localizedPath = localizeUrl({ config, url });
+  const finishedPath = localizedPath ?? path;
+  const fragment = await loadFragment(finishedPath);
   if (!fragment) {
     const p = document.createElement('p');
     p.textContent = `${localizedPath} not found.`;

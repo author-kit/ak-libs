@@ -1,8 +1,10 @@
-.columns {
+.lib-columns {
   --columns-gap: 0;
 
   display: grid;
   gap: var(--columns-gap);
+  background: #EFEFEF;
+  border-radius: 8px;
 
   img {
     display: block;
@@ -80,7 +82,7 @@
 }
 
 @media (width >= 900px) {
-  .columns {
+  .lib-columns {
     .row {
       grid-template-columns: repeat(var(--child-count), 1fr);
     }

@@ -1,6 +1,6 @@
 import { loadArea, getConfig } from '../../scripts/ak.js';
 
-const { log } = getConfig();
+const { log, providers, libsBase, locale } = getConfig();
 
 function replaceDotMedia(path, doc) {
   const resetAttributeBase = (tag, attr) => {
@@ -99,10 +99,31 @@ function getRequestPath(a) {
   return a.href;
 }
 
+/** Determine if the fragment is from a provider */
+function getProviderPath(path) {
+  // If already FQDN, do nothing
+  if (path.startsWith('https://')) return path;
+
+  // Did the fragment come from a provider
+  const provider = providers.find((pr) => path.startsWith(pr.pathPrefix));
+
+  // If no provider, get it locally
+  if (!provider) return path;
+
+  // If no origin, its libs
+  if (!provider.origin) return path.replace(provider.pathPrefix, libsBase);
+
+  return path.replace(provider.pathPrefix, `${provider.origin}${provider.pathPrefix}`);
+}
+
 export default async function init(a) {
+  // Convert accidental FQDN URLs to relative
   const path = getRequestPath(a);
 
-  const fragment = await loadFragment(path);
+  // Determine if a provider should supply the fragment
+  const providerPath = getProviderPath(path);
+
+  const fragment = await loadFragment(providerPath);
   if (fragment) {
     const elToReplace = getReplaceEl(a);
     const sections = fragment.querySelectorAll(':scope > .section');
@@ -110,7 +131,8 @@ export default async function init(a) {
       ? fragment.querySelectorAll(':scope > *')
       : [fragment];
     for (const [idx, child] of children.entries()) {
-      // If relative, create a unique ID to help fragments be identified after being inserted into the page
+      // If relative, create a unique ID to help
+      // fragments be identified after being inserted into the page
       if (path.startsWith('/')) child.id = btoa(encodeURIComponent(`${path}/${idx + 1}`));
       elToReplace.insertAdjacentElement('afterend', child);
     }

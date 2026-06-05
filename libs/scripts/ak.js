@@ -10,6 +10,16 @@
  * governing permissions and limitations under the License.
  */
 
+// Widgets / link-based blocks
+const DEF_LINK_BLOCKS = [
+  { 'lib-fragment': '/fragments/' },
+  { 'lib-schedule': '/schedules/' },
+  { 'lib-youtube': 'https://www.youtube' },
+];
+
+// Do not load styles
+const DEF_COMPONENTS = ['fragment', 'schedule'];
+
 const PROVIDERS = [
   { prefix: 'lib', pathPrefix: '/libs', local: 6456 },
   { prefix: 'blog', pathPrefix: '/blog', local: 2564, origin: 'https://main--ak-media--author-kit.aem.live' },
@@ -49,6 +59,9 @@ export const [setConfig, getConfig] = (() => {
         ...conf,
         log: conf.log || LOG,
         env: getEnv(),
+        linkBlocks: [...DEF_LINK_BLOCKS, ...conf.linkBlocks],
+        components: [...DEF_COMPONENTS, ...conf.components],
+        providers: PROVIDERS,
         locale: getLocale(conf.locales),
         codeBase: conf.codeBase ?? libsBase,
         libsBase,
@@ -97,8 +110,60 @@ function getCodeBase(env, libsBase, codeBase, provider) {
     : `${provider.origin.replace('main', branch)}${provider.pathPrefix}`;
 }
 
+export async function loadExperience(provider, type, el, name, opts) {
+  const { log, env, codeBase, libsBase } = getConfig();
+
+  const finalBase = getCodeBase(env, libsBase, codeBase, provider);
+
+  const path = `${finalBase}/${type}/${name}/${name}`;
+  const loading = [];
+  if (opts.decorate) {
+    loading.push(new Promise((resolve) => {
+      (async () => {
+        try {
+          await (await import(`${path}.js`)).default(el);
+        } catch (ex) { await log(ex, el); }
+        resolve();
+      })();
+    }));
+  }
+  if (opts.style) loading.push(loadStyle(`${path}.css`));
+  await Promise.all(loading);
+  return el;
+}
+
+// export async function loadBlock(block) {
+//   const { log, env, components, codeBase, libsBase } = getConfig();
+//   const { classList } = block;
+//   let name = classList[0];
+
+//   // See if a block provider owns the block
+//   const provider = PROVIDERS.find((pr) => name.startsWith(`${pr.prefix}-`));
+
+//   // Remove prefix if found in providers list
+//   name = provider ? name.replace(`${provider.prefix}-`, '') : name;
+//   block.dataset.blockName = name;
+
+//   // Determine origin and branch
+//   const finalBase = getCodeBase(env, libsBase, codeBase, provider);
+
+//   const blockPath = `${finalBase}/blocks/${name}/${name}`;
+//   const loading = [new Promise((resolve) => {
+//     (async () => {
+//       try {
+//         await (await import(`${blockPath}.js`)).default(block);
+//       } catch (ex) { log(ex, block); }
+//       resolve();
+//     })();
+//   })];
+//   const isCmp = components.some((cmp) => name === cmp);
+//   if (!isCmp) loading.push(loadStyle(`${blockPath}.css`));
+//   await Promise.all(loading);
+//   return block;
+// }
+
 export async function loadBlock(block) {
-  const { log, env, components, codeBase, libsBase } = getConfig();
+  const { components } = getConfig();
   const { classList } = block;
   let name = classList[0];
 
@@ -109,22 +174,8 @@ export async function loadBlock(block) {
   name = provider ? name.replace(`${provider.prefix}-`, '') : name;
   block.dataset.blockName = name;
 
-  // Determine origin and branch
-  const finalBase = getCodeBase(env, libsBase, codeBase, provider);
-
-  const blockPath = `${finalBase}/blocks/${name}/${name}`;
-  const loading = [new Promise((resolve) => {
-    (async () => {
-      try {
-        await (await import(`${blockPath}.js`)).default(block);
-      } catch (ex) { log(ex, block); }
-      resolve();
-    })();
-  })];
-  const isCmp = components.some((cmp) => name === cmp);
-  if (!isCmp) loading.push(loadStyle(`${blockPath}.css`));
-  await Promise.all(loading);
-  return block;
+  const opts = { decorate: true, style: !components.some((cmp) => name === cmp) };
+  return loadExperience(provider, 'blocks', block, name, opts);
 }
 
 function loadTemplate() {
@@ -193,7 +244,7 @@ function decorateButton(link) {
 }
 
 export function localizeUrl({ config, url }) {
-  const { locales, locale } = config;
+  const { locales, locale, providers } = config;
 
   // If in root locale, do nothing
   if (locale.prefix === '') return null;
@@ -208,7 +259,10 @@ export function localizeUrl({ config, url }) {
   );
   if (localized) return null;
 
-  return new URL(`${origin}${locale.prefix}${pathname}${search}${hash}`);
+  const provider = providers.find((pr) => pathname.startsWith(`${pr.pathPrefix}/`));
+  const providerOrigin = provider?.origin ?? origin;
+
+  return new URL(`${providerOrigin}${locale.prefix}${pathname}${search}${hash}`);
 }
 
 function decorateHash(a, url) {
@@ -294,12 +348,52 @@ function groupChildren(section) {
   return groups;
 }
 
+function toClassName(name) {
+  return typeof name === 'string'
+    ? name
+      .toLowerCase()
+      .replace(/[^0-9a-z]/gi, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+    : '';
+}
+
+function decorateSection(section) {
+  // Always add section class
+  section.classList.add('section');
+
+  // Find the legacy DOM-based metadata
+  const metaEl = section.querySelector(':scope > .section-metadata');
+  if (metaEl) {
+    [...metaEl.children].forEach((row) => {
+      const key = row.children[0].textContent.trim().toLowerCase();
+      const content = row.children[1];
+      if (content) {
+        const text = content.querySelector('img')?.src ?? content.textContent.trim().toLowerCase();
+        if (key && text) {
+          if (key === 'style') {
+            const styles = text.split(',').map((style) => toClassName(style));
+            section.classList.add(...styles);
+            return;
+          }
+          section.dataset[key] = text;
+        }
+      }
+    });
+    metaEl.remove();
+  }
+
+  // Determine if the section needs section-metadata.js
+  const meta = section.classList.length > 1 || Object.keys(section.dataset).length;
+  if (meta) section.dataset.meta = meta;
+}
+
 function decorateSections(parent, isDoc) {
   const selector = isDoc ? 'main > div' : ':scope > div';
   return [...parent.querySelectorAll(selector)].map((section) => {
+    decorateSection(section);
     const groups = groupChildren(section);
     section.append(...groups);
-    section.classList.add('section');
     section.dataset.status = 'decorated';
     section.linkBlocks = decorateLinks(section);
     section.blocks = [...section.querySelectorAll('.block-content > div[class]')];
@@ -351,7 +445,7 @@ export async function loadArea({ area } = { area: document }) {
     decorateDoc();
   }
   decoratePictures(area);
-  const { decorateArea } = getConfig();
+  const { decorateArea, providers } = getConfig();
   if (decorateArea) decorateArea({ area });
   const sections = decorateSections(area, isDoc);
   for (const [idx, section] of sections.entries()) {
@@ -359,6 +453,13 @@ export async function loadArea({ area } = { area: document }) {
     await Promise.all(section.linkBlocks.map((block) => loadBlock(block)));
     await Promise.all(section.blocks.map((block) => loadBlock(block)));
     delete section.dataset.status;
+
+    if (section.dataset.meta) {
+      const opts = { decorate: true, style: true };
+      await loadExperience(providers[0], 'blocks', section, 'section-metadata', opts);
+      delete section.dataset.meta;
+    }
+
     if (isDoc && idx === 0) {
       if (!isSession) decorateSession();
       import('./postlcp.js').then((mod) => mod.default());

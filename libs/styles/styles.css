@@ -172,6 +172,11 @@ body {
 
     margin: 0;
   }
+
+  /* Hide document-level icons so they can be referenced elsewhere. */
+  #icon-container {
+    display: none;
+  }
 }
 
 header {
