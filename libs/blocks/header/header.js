@@ -2,9 +2,9 @@ import { getConfig, getMetadata } from '../../scripts/ak.js';
 import { loadFragment } from '../fragment/fragment.js';
 import { setColorScheme } from '../section-metadata/section-metadata.js';
 
-const { locale } = getConfig();
+const { locale, libsBase } = getConfig();
 
-const HEADER_PATH = '/libs/fragments/nav/header';
+const HEADER_PATH = `${libsBase}/fragments/nav/header`;
 const HEADER_ACTIONS = [
   '/tools/widgets/scheme',
   '/tools/widgets/language',
@@ -186,10 +186,11 @@ async function decorateHeader(fragment) {
 export default async function init(el) {
   const headerMeta = getMetadata('header');
   const path = headerMeta || HEADER_PATH;
-  const fragment = await loadFragment(`${locale.prefix}${path}`);
+  const localizedPath = `${locale.prefix}${path}`;
+  const fragment = await loadFragment(localizedPath);
   if (!fragment) {
     const p = document.createElement('p');
-    p.textContent = `${path} not found.`;
+    p.textContent = `${localizedPath} not found.`;
     p.className = 'not-found';
     el.append(p);
     return;

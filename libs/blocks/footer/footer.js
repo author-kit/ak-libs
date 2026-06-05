@@ -1,7 +1,9 @@
 import { getConfig, getMetadata } from '../../scripts/ak.js';
 import { loadFragment } from '../fragment/fragment.js';
 
-const FOOTER_PATH = '/libs/fragments/nav/footer';
+const { libsBase } = getConfig();
+
+const FOOTER_PATH = `${libsBase}/fragments/nav/footer`;
 
 /**
  * loads and decorates the footer
@@ -11,10 +13,11 @@ export default async function init(el) {
   const { locale } = getConfig();
   const footerMeta = getMetadata('footer');
   const path = footerMeta || FOOTER_PATH;
-  const fragment = await loadFragment(`${locale.prefix}${path}`);
+  const localizedPath = `${locale.prefix}${path}`;
+  const fragment = await loadFragment(localizedPath);
   if (!fragment) {
     const p = document.createElement('p');
-    p.textContent = `${path} not found.`;
+    p.textContent = `${localizedPath} not found.`;
     p.className = 'not-found';
     el.append(p);
     return;
