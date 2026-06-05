@@ -231,6 +231,12 @@ header {
     }
   }
 
+  > p.not-found {
+    line-height: var(--header-height);
+    max-width: var(--grid-container-width);
+    margin-inline: auto;
+  }
+
   &.is-mobile-open {
     height: initial;
     max-height: initial;

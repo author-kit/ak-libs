@@ -25,6 +25,12 @@ footer {
       margin: initial;
     }
   }
+
+  > p.not-found {
+    line-height: var(--header-height);
+    max-width: var(--grid-container-width);
+    margin-inline: auto;
+  }
 }
 
 @media (width >= 900px) {

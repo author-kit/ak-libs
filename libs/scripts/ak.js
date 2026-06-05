@@ -41,7 +41,7 @@ function getEnv() {
 export const [setConfig, getConfig] = (() => {
   let config;
 
-  const libCodeBase = `${import.meta.url.replace('/scripts/ak.js', '')}`;
+  const libsBase = `${import.meta.url.replace('/scripts/ak.js', '')}`;
 
   return [
     (conf = {}) => {
@@ -50,8 +50,8 @@ export const [setConfig, getConfig] = (() => {
         log: conf.log || LOG,
         env: getEnv(),
         locale: getLocale(conf.locales),
-        codeBase: conf.codeBase ?? libCodeBase,
-        libCodeBase,
+        codeBase: conf.codeBase ?? libsBase,
+        libsBase,
       };
       return config;
     },
@@ -74,7 +74,7 @@ export async function loadStyle(href) {
   });
 }
 
-function getCodeBase(env, libCodeBase, codeBase, provider) {
+function getCodeBase(env, libsBase, codeBase, provider) {
   // If no one to provide the experience, return the consuming codeBase.
   if (!provider) return codeBase;
 
@@ -85,19 +85,20 @@ function getCodeBase(env, libCodeBase, codeBase, provider) {
   if (!provider.origin) {
     return branch === 'local'
       ? `http://localhost:${provider.local}${provider.pathPrefix}`
-      : libCodeBase;
+      : libsBase;
   }
 
   // Always return the CDN mapped path if on a prod environment
   if (env === 'prod') return `${window.location.origin}${provider.pathPrefix}`;
 
+  // Allow local dev on a custom port
   return branch === 'local'
     ? `http://localhost:${provider.local}${provider.pathPrefix}`
     : `${provider.origin.replace('main', branch)}${provider.pathPrefix}`;
 }
 
 export async function loadBlock(block) {
-  const { log, env, components, codeBase: consumerCodeBase, libCodeBase } = getConfig();
+  const { log, env, components, codeBase, libsBase } = getConfig();
   const { classList } = block;
   let name = classList[0];
 
@@ -109,9 +110,9 @@ export async function loadBlock(block) {
   block.dataset.blockName = name;
 
   // Determine origin and branch
-  const codeBase = getCodeBase(env, libCodeBase, consumerCodeBase, provider);
+  const finalBase = getCodeBase(env, libsBase, codeBase, provider);
 
-  const blockPath = `${codeBase}/blocks/${name}/${name}`;
+  const blockPath = `${finalBase}/blocks/${name}/${name}`;
   const loading = [new Promise((resolve) => {
     (async () => {
       try {
@@ -309,7 +310,7 @@ function decorateSections(parent, isDoc) {
 function decorateHeader() {
   const header = document.querySelector('header');
   if (!header) return;
-  const meta = getMetadata('header') || 'header';
+  const meta = getMetadata('header') || 'lib-header';
   if (meta === 'off') {
     document.body.classList.add('no-header');
     header.remove();
@@ -324,7 +325,9 @@ function decorateHeader() {
   if (breadcrumbs) header.append(breadcrumbs);
 }
 
-function decorateSession() {
+async function decorateSession() {
+  const { libsBase } = getConfig();
+  loadStyle(`${libsBase}/styles/fonts.css`);
   sessionStorage.setItem('session', true);
   document.body.classList.add('session');
 }

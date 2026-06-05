@@ -1,4 +1,6 @@
-import { loadArea } from '../../scripts/ak.js';
+import { loadArea, getConfig } from '../../scripts/ak.js';
+
+const { log } = getConfig();
 
 function replaceDotMedia(path, doc) {
   const resetAttributeBase = (tag, attr) => {
@@ -30,7 +32,10 @@ function applyPageStyles(fragment) {
  */
 export async function loadFragment(path) {
   const resp = await fetch(`${path}`);
-  if (!resp.ok) throw Error(`Couldn't fetch ${path}`);
+  if (!resp.ok) {
+    log(`${path} not found.`);
+    return null;
+  }
 
   const html = await resp.text();
   const doc = new DOMParser().parseFromString(html, 'text/html');

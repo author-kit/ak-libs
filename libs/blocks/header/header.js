@@ -4,7 +4,7 @@ import { setColorScheme } from '../section-metadata/section-metadata.js';
 
 const { locale } = getConfig();
 
-const HEADER_PATH = '/fragments/nav/header';
+const HEADER_PATH = '/libs/fragments/nav/header';
 const HEADER_ACTIONS = [
   '/tools/widgets/scheme',
   '/tools/widgets/language',
@@ -186,12 +186,15 @@ async function decorateHeader(fragment) {
 export default async function init(el) {
   const headerMeta = getMetadata('header');
   const path = headerMeta || HEADER_PATH;
-  try {
-    const fragment = await loadFragment(`${locale.prefix}${path}`);
-    fragment.classList.add('header-content');
-    await decorateHeader(fragment);
-    el.append(fragment);
-  } catch (e) {
-    throw Error(e);
+  const fragment = await loadFragment(`${locale.prefix}${path}`);
+  if (!fragment) {
+    const p = document.createElement('p');
+    p.textContent = `${path} not found.`;
+    p.className = 'not-found';
+    el.append(p);
+    return;
   }
+  fragment.classList.add('header-content');
+  await decorateHeader(fragment);
+  el.append(fragment);
 }
