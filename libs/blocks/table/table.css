@@ -2,10 +2,12 @@
   table {
     width: 100%;
     border-collapse: collapse;
+    margin-bottom: ;
 
     th,
     td {
       border: 1px solid;
+      padding: var(--spacing-s);
     }
   }
 }

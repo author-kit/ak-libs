@@ -252,6 +252,10 @@ a {
     max-width: var(--grid-container-width);
     margin: 0 auto;
   }
+
+  > .block-content:has(+ .default-content) {
+    margin-bottom: calc(var(--top-bottom-spacing) / 3);
+  }
 }
 
 main {
