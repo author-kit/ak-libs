@@ -132,36 +132,6 @@ export async function loadExperience(provider, type, el, name, opts) {
   return el;
 }
 
-// export async function loadBlock(block) {
-//   const { log, env, components, codeBase, libsBase } = getConfig();
-//   const { classList } = block;
-//   let name = classList[0];
-
-//   // See if a block provider owns the block
-//   const provider = PROVIDERS.find((pr) => name.startsWith(`${pr.prefix}-`));
-
-//   // Remove prefix if found in providers list
-//   name = provider ? name.replace(`${provider.prefix}-`, '') : name;
-//   block.dataset.blockName = name;
-
-//   // Determine origin and branch
-//   const finalBase = getCodeBase(env, libsBase, codeBase, provider);
-
-//   const blockPath = `${finalBase}/blocks/${name}/${name}`;
-//   const loading = [new Promise((resolve) => {
-//     (async () => {
-//       try {
-//         await (await import(`${blockPath}.js`)).default(block);
-//       } catch (ex) { log(ex, block); }
-//       resolve();
-//     })();
-//   })];
-//   const isCmp = components.some((cmp) => name === cmp);
-//   if (!isCmp) loading.push(loadStyle(`${blockPath}.css`));
-//   await Promise.all(loading);
-//   return block;
-// }
-
 export async function loadBlock(block) {
   const { components } = getConfig();
   const { classList } = block;
